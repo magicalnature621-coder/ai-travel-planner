@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import SearchResults from "@/components/SearchResults";
 import { findCity } from "@/lib/cities";
-import { search } from "@/lib/inventory";
+import { searchFull } from "@/lib/liveSearch";
 
 export const metadata = { title: "Search results · AI Travel Planner" };
 
@@ -20,6 +20,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     travellers: Math.min(9, Math.max(1, Number(sp.travellers) || 1)),
     roundTrip: sp.roundTrip !== "0",
   };
-  const r = search(params);
-  return <SearchResults key={JSON.stringify(params)} params={params} returnDate={r.returnDate} outbound={r.outbound} inbound={r.inbound} stays={r.stays} restaurants={r.restaurants} />;
+  const r = await searchFull(params);
+  return <SearchResults key={JSON.stringify(params)} params={params} returnDate={r.returnDate} outbound={r.outbound} inbound={r.inbound} stays={r.stays} restaurants={r.restaurants} trainSource={r.trainSource} />;
 }

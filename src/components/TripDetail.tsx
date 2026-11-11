@@ -197,7 +197,7 @@ function TicketCard({ trip, which }: { trip: TripView; which: "outbound" | "retu
         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Passengers</p>
         <ul className="mt-2 space-y-1 text-sm">
           {(trip.travellerDetails ?? []).map((p, i) => (
-            <li key={i} className="flex justify-between"><span className="font-semibold">{p.name}</span><span className="text-slate-500">{p.age} · {p.gender[0]} · <span className="font-semibold text-emerald-600">CNF</span></span></li>
+            <li key={i} className="flex justify-between"><span className="font-semibold">{p.name}</span><span className="text-slate-500">{p.age} · {p.gender[0]} · {leg.fare.availability?.kind === "rac" ? <span className="font-semibold text-amber-600">RAC</span> : leg.fare.availability?.kind === "waitlist" ? <span className="font-semibold text-orange-600">WL</span> : <span className="font-semibold text-emerald-600">CNF</span>}</span></li>
           ))}
         </ul>
         <a href={`/api/trips/${trip.id}/pdf?doc=${which}`} target="_blank" className="btn-primary mt-4 w-full"><Download className="h-4 w-4" /> Download PDF ticket</a>

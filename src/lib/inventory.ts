@@ -10,7 +10,16 @@ import { City, distanceKm, findCity } from "./cities";
 export type Mode = "flight" | "train" | "bus";
 
 export type Coach = { code: string; available: number; capacity: number };
-export type Fare = { code: string; label: string; price: number; seatsLeft: number; perks: string[]; coaches?: Coach[] };
+export type Fare = {
+  code: string;
+  label: string;
+  price: number;
+  seatsLeft: number;
+  perks: string[];
+  coaches?: Coach[];
+  estimated?: boolean; // live trains: approximate fare until seats are checked
+  availability?: { status: string; kind: "available" | "rac" | "waitlist" | "none"; label: string };
+};
 
 export type TransportDetails = {
   facts: { label: string; value: string }[];
@@ -37,6 +46,7 @@ export type TransportOption = {
   distanceKm: number;
   fares: Fare[];
   details: TransportDetails;
+  live?: boolean; // real train from Indian Railways data
 };
 
 export type StayOption = {

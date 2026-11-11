@@ -9,7 +9,8 @@ The app runs **without any API keys**. Each integration switches on automaticall
 | Payments | Built-in demo checkout (no money moves) | Razorpay checkout (test or live) |
 | Email tickets | Logged as "demo" | Real email with PDF tickets via Resend |
 | WhatsApp | Logged as "demo" | Real WhatsApp message via Twilio |
-| Flights/trains/buses/hotels | Realistic generated inventory | Phase 2: real supplier APIs (see bottom) |
+| Trains | Sample trains | Real trains, seat availability and fares (RapidAPI IRCTC) |
+| Flights/buses/hotels | Realistic generated inventory | Phase 2: real supplier APIs (see bottom) |
 
 ---
 
@@ -41,6 +42,16 @@ The free tier has daily rate limits, which is plenty for a demo. If Groq retires
 4. Put it in `ANTHROPIC_API_KEY`.
 
 Cost: roughly ₹3–6 per itinerary. The plan is generated once per booking and saved.
+
+## 3c. Live trains: IRCTC API on RapidAPI
+Shows real Indian Railways trains for the route and date, and real seat availability + exact fare when a user taps a class.
+1. Sign up at **https://rapidapi.com**, open the **IRCTC** API (host `irctc1.p.rapidapi.com`), go to **Pricing** and subscribe.
+2. Copy your key from any endpoint's **Authorization** tab.
+3. Put it in `RAPIDAPI_KEY` and restart `npm run dev`.
+
+**Request limits matter.** The free Basic plan allows only **10 requests per month**. Each new route/date search costs 1 request (cached 24h) and each seat check costs 1 (cached 20 min). Upgrade to a paid plan before a demo. When the limit is reached the site automatically shows sample trains with a notice.
+
+Not possible through any public API: coach-wise vacancy (only published after chart preparation, ~4h before departure) and real ticket booking (needs an IRCTC authorised-agent licence).
 
 ## 4. Payments: Razorpay (card + UPI)
 1. Go to **https://razorpay.com** → **Sign up** with your mobile/email.

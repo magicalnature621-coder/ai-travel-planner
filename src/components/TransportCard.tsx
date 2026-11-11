@@ -13,7 +13,7 @@ const MODE_STYLE: Record<string, string> = {
   bus: "bg-emerald-50 text-emerald-700",
 };
 
-export default function TransportCard({ o, selectedFare, onSelect, travellers }: { o: TransportOption; selectedFare?: string; onSelect: (fare: string) => void; travellers: number }) {
+export default function TransportCard({ o, selectedFare, onSelect, travellers, checking }: { o: TransportOption; selectedFare?: string; onSelect: (fare: string) => void; travellers: number; checking?: string | null }) {
   const selected = Boolean(selectedFare);
   const [open, setOpen] = useState(false);
   return (
@@ -22,7 +22,7 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
         <div className="flex min-w-0 items-center gap-2">
           <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${MODE_STYLE[o.mode]}`}><ModeIcon mode={o.mode} /></span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold">{o.operator}</p>
+            <p className="flex items-center gap-1.5 truncate text-sm font-bold">{o.operator}{o.live && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />Live</span>}</p>
             <p className="truncate text-xs text-slate-500">{o.number}</p>
           </div>
         </div>
@@ -54,7 +54,9 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
       <div className="mt-3 grid gap-1.5">
         {o.fares.map((f) => {
           const active = selectedFare === f.code;
-          const soldOut = f.seatsLeft < travellers;
+          const soldOut = f.availability ? f.availability.kind === "none" : f.seatsLeft < travellers;
+          const isChecking = checking === f.code;
+          const availColor = { available: "text-emerald-600", rac: "text-amber-600", waitlist: "text-orange-600", none: "text-rose-600" };
           return (
             <button
               key={f.code}
@@ -65,7 +67,11 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold">{f.label}</span>
-                {f.coaches ? (
+                {o.live ? (
+                  <span className={`block text-[11px] font-semibold ${f.availability ? availColor[f.availability.kind] : "text-brand-600"}`}>
+                    {isChecking ? "Checking live seats…" : f.availability ? f.availability.label : "Tap to check live seats & fare"}
+                  </span>
+                ) : f.coaches ? (
                   <span className={`block text-[11px] font-semibold ${f.seatsLeft === 0 ? "text-rose-600" : f.seatsLeft <= 10 ? "text-amber-600" : "text-emerald-600"}`}>
                     {f.seatsLeft === 0 ? "No seats available" : soldOut ? `Only ${f.seatsLeft} left, not enough for your group` : `${f.seatsLeft} seats available`}
                   </span>
@@ -85,8 +91,8 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
                 )}
               </span>
               <span className="shrink-0 text-right">
-                <span className="block text-[15px] font-extrabold">{inr(f.price)}</span>
-                <span className="block text-[10px] text-slate-400">per person</span>
+                <span className="block text-[15px] font-extrabold">{f.estimated ? "≈ " : ""}{inr(f.price)}</span>
+                <span className="block text-[10px] text-slate-400">{f.estimated ? "approx. per person" : "per person"}</span>
               </span>
             </button>
           );

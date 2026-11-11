@@ -79,9 +79,11 @@ export async function ticketPdf(trip: TripView, which: "outbound" | "return"): P
 
   section(ctx, "Passengers");
   (trip.travellerDetails ?? []).forEach((p, i) => {
-    const coach = leg.fare.coaches?.find((c) => c.available > 0)?.code ?? "B1";
+    const coach = leg.fare.coaches?.find((c) => c.available > 0)?.code ?? ({ SL: "S2", "3A": "B2", "3E": "M1", "2A": "A1", "1A": "H1", CC: "C3", EC: "E1", "2S": "D4" } as Record<string, string>)[leg.fare.code] ?? "B1";
+    const kind = leg.fare.availability?.kind ?? "available";
+    const n = leg.fare.availability?.status.match(/(\d+)\s*$/)?.[1];
     const seat = o.mode === "flight" ? `${12 + i}${"ABCDEF"[i % 6]}` : o.mode === "train" ? `${coach} / ${21 + i}` : `L${3 + i}`;
-    row(ctx, [["Name", p.name], ["Age / Gender", `${p.age} / ${p.gender}`], [o.mode === "train" ? "Coach / Berth" : "Seat", seat], ["Status", "CONFIRMED"]]);
+    row(ctx, [["Name", p.name], ["Age / Gender", `${p.age} / ${p.gender}`], [o.mode === "train" ? "Coach / Berth" : "Seat", kind === "available" ? seat : "Allotted on confirmation"], ["Status", kind === "rac" ? `RAC ${n ?? ""}`.trim() : kind === "waitlist" ? `WL ${n ? Number(n) + i : ""}`.trim() : "CONFIRMED"]]);
   });
 
   footer(ctx, o.mode === "flight"

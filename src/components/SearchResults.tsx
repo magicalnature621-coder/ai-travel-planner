@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, BedDouble, Check, Loader2, Pencil, UtensilsCrossed, Route, ArrowLeftRight, X } from "lucide-react";
-import type { Restaurant, StayOption, TransportOption } from "@/lib/inventory";
+import type { Fare, Restaurant, StayOption, TransportOption } from "@/lib/inventory";
+import type { TrainSource } from "@/lib/liveSearch";
 import { inr } from "@/lib/inventory";
 import { priceBreakdown } from "@/lib/pricing";
 import TransportCard, { ModeIcon } from "./TransportCard";
@@ -19,6 +20,7 @@ type Props = {
   inbound: TransportOption[];
   stays: StayOption[];
   restaurants: Restaurant[];
+  trainSource?: TrainSource;
 };
 type Sel = { optionId: string; fare: string } | null;
 type ModeFilter = "all" | "flight" | "train" | "bus";
@@ -39,7 +41,15 @@ function Pills<T extends string>({ value, set, options }: { value: T; set: (v: T
   );
 }
 
-export default function SearchResults(p: Props) {
+export default function SearchResults(props: Props) {
+  // Live seat checks (exact fare + availability) layered over the server's train list
+  const [seatInfo, setSeatInfo] = useState<Record<string, Partial<Fare>>>({});
+  const [checking, setChecking] = useState<string | null>(null);
+  const [seatMsg, setSeatMsg] = useState("");
+  const p = useMemo(() => {
+    const apply = (o: TransportOption) => (o.live ? { ...o, fares: o.fares.map((f) => ({ ...f, ...(seatInfo[`${o.id}|${f.code}`] ?? {}) })) } : o);
+    return { ...props, outbound: props.outbound.map(apply), inbound: props.inbound.map(apply) };
+  }, [props, seatInfo]);
   const router = useRouter();
   const { params } = p;
   const [leg, setLeg] = useState<"out" | "in">("out");
@@ -186,6 +196,13 @@ export default function SearchResults(p: Props) {
                     </select>
                   </div>
                 </div>
+                {(mode === "all" || mode === "train") && p.trainSource?.mode === "live" && (
+                  <p className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />Trains are live from Indian Railways. Tap a class to see real seat availability and the exact fare.</p>
+                )}
+                {(mode === "all" || mode === "train") && p.trainSource?.message && (
+                  <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">{p.trainSource.message}</p>
+                )}
+                {seatMsg && <p className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900">{seatMsg}</p>}
                 <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
                   {shown.length === 0 && <p className="card p-6 text-center text-sm text-slate-500 lg:col-span-2">No {mode === "all" ? "travel options" : { flight: "flights", train: "trains", bus: "buses" }[mode]} on this route. Try another mode.</p>}
                   {shown.map((o) => (
@@ -194,10 +211,29 @@ export default function SearchResults(p: Props) {
                       o={o}
                       travellers={params.travellers}
                       selectedFare={sel?.optionId === o.id ? sel.fare : undefined}
-                      onSelect={(fare) => {
+                      checking={checking?.startsWith(o.id + "|") ? checking.split("|")[1] : null}
+                      onSelect={async (fare) => {
                         const same = sel?.optionId === o.id && sel.fare === fare;
-                        setSel(same ? null : { optionId: o.id, fare });
-                        if (!same && leg === "out" && params.roundTrip && !inSel) setTimeout(() => setLeg("in"), 350);
+                        if (same) return setSel(null);
+                        const f = o.fares.find((x) => x.code === fare);
+                        setSeatMsg("");
+                        // Live train: fetch real availability + fare before selecting
+                        if (o.live && f && !f.availability) {
+                          const key = `${o.id}|${fare}`;
+                          setChecking(key);
+                          const res = await fetch("/api/rail/seats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trainNo: o.number, from: o.fromCode, to: o.toCode, cls: fare, date: o.date }) });
+                          const json = await res.json().catch(() => ({}));
+                          setChecking(null);
+                          if (res.ok) {
+                            setSeatInfo((m) => ({ ...m, [key]: { price: json.fare ?? f.price, estimated: json.fare == null, availability: { status: json.status, kind: json.kind, label: json.label } } }));
+                            if (json.kind === "none") return setSeatMsg(`${o.operator}: no seats in ${f.label} on this date. Try another class or train.`);
+                            if (json.kind !== "available") setSeatMsg(`${o.operator} ${f.label}: ${json.label}. Your ticket would be ${json.kind === "rac" ? "RAC" : "waitlisted"} until it confirms.`);
+                          } else {
+                            setSeatMsg(`${json.error || "Couldn't check seats."} Selected with the approximate fare.`);
+                          }
+                        }
+                        setSel({ optionId: o.id, fare });
+                        if (leg === "out" && params.roundTrip && !inSel) setTimeout(() => setLeg("in"), 350);
                       }}
                     />
                   ))}

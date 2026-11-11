@@ -49,3 +49,10 @@ model Trip {
 
   @@index([userId])
 }
+
+// Cache for third-party API responses (keeps us inside RapidAPI's request limits)
+model ApiCache {
+  key       String   @id
+  data      Json
+  expiresAt DateTime
+}

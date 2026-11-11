@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { search } from "@/lib/inventory";
+import { searchFull } from "@/lib/liveSearch";
 import { priceBreakdown } from "@/lib/pricing";
 
 const Leg = z.object({ optionId: z.string(), fare: z.string() });
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid selection" }, { status: 400 });
   const b = parsed.data;
 
-  const results = search(b);
+  const results = await searchFull(b);
   const resolve = (list: typeof results.outbound, leg?: { optionId: string; fare: string } | null) => {
     if (!leg) return null;
     const option = list.find((o) => o.id === leg.optionId);
@@ -42,6 +42,8 @@ export async function POST(req: Request) {
 
   if (outbound === undefined || inbound === undefined || stay === undefined)
     return NextResponse.json({ error: "That option is no longer available. Please search again." }, { status: 400 });
+  const soldOut = [outbound, inbound].find((l) => l?.fare.availability?.kind === "none");
+  if (soldOut) return NextResponse.json({ error: `${soldOut.option.operator} (${soldOut.fare.label}) has no seats left. Please pick another class or train.` }, { status: 400 });
   if (!outbound && !inbound && !stay)
     return NextResponse.json({ error: "Select travel, a stay, or both to continue" }, { status: 400 });
 
