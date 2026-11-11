@@ -5,7 +5,7 @@ The app runs **without any API keys**. Each integration switches on automaticall
 | Feature | Without keys (demo) | With keys |
 |---|---|---|
 | Database | — (required) | Neon Postgres |
-| AI itinerary | Template plan built from top attractions | Personalised plan written by Claude |
+| AI itinerary | Template plan built from top attractions | Personalised plan written by Groq (free) or Claude |
 | Payments | Built-in demo checkout (no money moves) | Razorpay checkout (test or live) |
 | Email tickets | Logged as "demo" | Real email with PDF tickets via Resend |
 | WhatsApp | Logged as "demo" | Real WhatsApp message via Twilio |
@@ -27,7 +27,14 @@ Any long random string. Generate one with:
 openssl rand -base64 32
 ```
 
-## 3. AI itinerary: Anthropic (Claude)
+## 3. AI itinerary: Groq (free, recommended to start)
+1. Go to **https://console.groq.com** → sign up (Google/GitHub works).
+2. Open **API Keys → Create API Key** → copy it (starts with `gsk_`).
+3. Put it in `GROQ_API_KEY` and restart `npm run dev`.
+
+The free tier has daily rate limits, which is plenty for a demo. If Groq retires the default model, pick a current one from **console.groq.com/docs/models** and set it in `GROQ_MODEL`. If a Groq call ever fails, the app falls back to the template plan.
+
+## 3b. AI itinerary: Anthropic (Claude), optional alternative
 1. Go to **https://console.anthropic.com** → sign up.
 2. **Settings → Billing** → add a card and buy credits ($5 minimum is plenty for a demo).
 3. **Settings → API Keys → Create Key** → copy it (starts with `sk-ant-`).
