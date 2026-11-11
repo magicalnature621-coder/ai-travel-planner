@@ -79,7 +79,8 @@ export async function ticketPdf(trip: TripView, which: "outbound" | "return"): P
 
   section(ctx, "Passengers");
   (trip.travellerDetails ?? []).forEach((p, i) => {
-    const seat = o.mode === "flight" ? `${12 + i}${"ABCDEF"[i % 6]}` : o.mode === "train" ? `B${1 + (i % 4)} / ${21 + i}` : `L${3 + i}`;
+    const coach = leg.fare.coaches?.find((c) => c.available > 0)?.code ?? "B1";
+    const seat = o.mode === "flight" ? `${12 + i}${"ABCDEF"[i % 6]}` : o.mode === "train" ? `${coach} / ${21 + i}` : `L${3 + i}`;
     row(ctx, [["Name", p.name], ["Age / Gender", `${p.age} / ${p.gender}`], [o.mode === "train" ? "Coach / Berth" : "Seat", seat], ["Status", "CONFIRMED"]]);
   });
 

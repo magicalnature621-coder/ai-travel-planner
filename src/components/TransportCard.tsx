@@ -65,9 +65,24 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold">{f.label}</span>
-                <span className={`block text-[11px] ${f.seatsLeft <= 4 ? "font-semibold text-rose-600" : "text-slate-500"}`}>
-                  {soldOut ? "Not enough seats" : f.seatsLeft <= 4 ? `Only ${f.seatsLeft} left` : f.perks.slice(0, 2).join(" · ")}
-                </span>
+                {f.coaches ? (
+                  <span className={`block text-[11px] font-semibold ${f.seatsLeft === 0 ? "text-rose-600" : f.seatsLeft <= 10 ? "text-amber-600" : "text-emerald-600"}`}>
+                    {f.seatsLeft === 0 ? "No seats available" : soldOut ? `Only ${f.seatsLeft} left, not enough for your group` : `${f.seatsLeft} seats available`}
+                  </span>
+                ) : (
+                  <span className={`block text-[11px] ${f.seatsLeft <= 4 ? "font-semibold text-rose-600" : "text-slate-500"}`}>
+                    {soldOut ? "Not enough seats" : f.seatsLeft <= 4 ? `Only ${f.seatsLeft} left` : f.perks.slice(0, 2).join(" · ")}
+                  </span>
+                )}
+                {f.coaches && (
+                  <span className="mt-1.5 flex flex-wrap gap-1">
+                    {f.coaches.map((co) => (
+                      <span key={co.code} title={`Coach ${co.code}: ${co.available} of ${co.capacity} available`} className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${co.available === 0 ? "bg-rose-50 text-rose-500" : co.available <= 5 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                        {co.code} · {co.available}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
               <span className="shrink-0 text-right">
                 <span className="block text-[15px] font-extrabold">{inr(f.price)}</span>

@@ -9,7 +9,8 @@ import { City, distanceKm, findCity } from "./cities";
 
 export type Mode = "flight" | "train" | "bus";
 
-export type Fare = { code: string; label: string; price: number; seatsLeft: number; perks: string[] };
+export type Coach = { code: string; available: number; capacity: number };
+export type Fare = { code: string; label: string; price: number; seatsLeft: number; perks: string[]; coaches?: Coach[] };
 
 export type TransportDetails = {
   facts: { label: string; value: string }[];
@@ -139,6 +140,26 @@ const TRAIN_TYPES = [
   { name: "Superfast Express", speed: 58, classes: ["SL", "3A", "2A"] },
   { name: "Mail Express", speed: 50, classes: ["SL", "3A", "2A"] },
 ];
+// Coach layout per class: coach-code prefix, number of coaches, berths/seats per coach
+const COACH_LAYOUT: Record<string, { prefix: string; count: [number, number]; capacity: number }> = {
+  SL: { prefix: "S", count: [6, 10], capacity: 72 },
+  "3A": { prefix: "B", count: [4, 7], capacity: 72 },
+  "2A": { prefix: "A", count: [1, 3], capacity: 54 },
+  "1A": { prefix: "H", count: [1, 1], capacity: 24 },
+  CC: { prefix: "C", count: [4, 8], capacity: 78 },
+  EC: { prefix: "E", count: [1, 2], capacity: 56 },
+};
+
+function coachAvailability(r: () => number, cls: string): Coach[] {
+  const l = COACH_LAYOUT[cls];
+  const n = between(r, l.count[0], l.count[1]);
+  const busy = r(); // how full this class is overall (0 = empty, 1 = packed)
+  return Array.from({ length: n }, (_, i) => {
+    const free = r() < busy * 0.5 ? 0 : Math.round(l.capacity * (1 - busy) * r() * 0.6);
+    return { code: `${l.prefix}${i + 1}`, available: Math.min(free, l.capacity), capacity: l.capacity };
+  });
+}
+
 const TRAIN_CLASS: Record<string, { label: string; perKm: number; perks: string[] }> = {
   SL: { label: "Sleeper (SL)", perKm: 0.45, perks: ["Berth"] },
   "3A": { label: "AC 3 Tier (3A)", perKm: 1.2, perks: ["AC", "Bedding"] },
@@ -263,13 +284,17 @@ function trains(from: City, to: City, date: string): TransportOption[] {
         ],
         note: "Carry the original ID used while booking. Chart is prepared about 4 hours before departure.",
       },
-      fares: type.classes.map((c) => ({
-        code: c,
-        label: TRAIN_CLASS[c].label,
-        price: round(Math.max(180, km * TRAIN_CLASS[c].perKm) + 40, 5),
-        seatsLeft: between(r, 0, 60) || between(r, 1, 4),
-        perks: TRAIN_CLASS[c].perks,
-      })),
+      fares: type.classes.map((c) => {
+        const coaches = coachAvailability(r, c);
+        return {
+          code: c,
+          label: TRAIN_CLASS[c].label,
+          price: round(Math.max(180, km * TRAIN_CLASS[c].perKm) + 40, 5),
+          seatsLeft: coaches.reduce((sum, co) => sum + co.available, 0),
+          perks: TRAIN_CLASS[c].perks,
+          coaches,
+        };
+      }),
     });
   }
   return out.sort((a, b) => a.departTime.localeCompare(b.departTime));
