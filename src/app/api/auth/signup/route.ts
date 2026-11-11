@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { startSession } from "@/lib/auth";
+import { serverError } from "@/lib/dbError";
 
 const Body = z.object({
   name: z.string().trim().min(2, "Please enter your full name"),
@@ -12,6 +13,14 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    return serverError(e);
+  }
+}
+
+async function handle(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   const { name, email, password } = parsed.data;
