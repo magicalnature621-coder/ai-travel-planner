@@ -33,7 +33,8 @@ function dayDates(trip: TripView) {
 async function aiItinerary(trip: TripView): Promise<Itinerary | null> {
   const client = new Anthropic();
   const dates = dayDates(trip);
-  const o = trip.outbound.option;
+  const o = trip.outbound?.option;
+
   const ret = trip.returnLeg?.option;
   const travellers = (trip.travellerDetails ?? []).map((t) => `${t.gender}, ${t.age}, meal: ${t.meal}`).join("; ");
 
@@ -41,9 +42,9 @@ async function aiItinerary(trip: TripView): Promise<Itinerary | null> {
 
 Trip facts:
 - Nights at destination: ${trip.days}; dates: ${dates.join(", ")}
-- Arrival: ${o.operator} ${o.number}, departs ${o.departTime}, arrives ${o.arriveTime}${o.arriveDayOffset ? ` (+${o.arriveDayOffset} day)` : ""} on ${dates[0]}
-- ${ret ? `Departure home: ${ret.operator} ${ret.number} at ${ret.departTime} on ${dates[dates.length - 1]} (hotel check-out 11:00)` : "One-way trip, no return booked"}
-- Staying at: ${trip.stay.name}, ${trip.stay.area} (${trip.stay.kind})
+- Arrival: ${o ? `${o.operator} ${o.number}, departs ${o.departTime}, arrives ${o.arriveTime}${o.arriveDayOffset ? ` (+${o.arriveDayOffset} day)` : ""} on ${dates[0]}` : "Travelling on their own; assume arrival around midday on day 1"}
+- ${ret ? `Departure home: ${ret.operator} ${ret.number} at ${ret.departTime} on ${dates[dates.length - 1]} (check-out ${trip.stay?.checkOut ?? "11:00"})` : trip.roundTrip ? `Leaving on ${dates[dates.length - 1]} by their own arrangement` : "One-way trip, no return booked"}
+- Staying at: ${trip.stay ? `${trip.stay.name}, ${trip.stay.area} (${trip.stay.kind})` : "their own accommodation (not booked with us); suggest a central base"}
 - Travellers: ${travellers || "not specified"}
 - Special requests: ${trip.specialRequests || "none"}
 - Restaurants we recommended: ${trip.restaurants.map((r) => `${r.name} (${r.area}, try ${r.mustTry})`).join("; ")}
@@ -67,6 +68,7 @@ export function templateItinerary(trip: TripView): Itinerary {
   const city = findCity(trip.toCity);
   const sights = city?.attractions ?? ["the old town", "the main market", "a local museum"];
   const dishes = city?.dishes ?? ["the local thali"];
+  const base = trip.stay ?? { name: "your stay", area: city?.areas[0] ?? "the city centre" };
   const dates = dayDates(trip);
   const s = (i: number) => sights[i % sights.length];
   const days = dates.map((date, i) => {
@@ -76,16 +78,16 @@ export function templateItinerary(trip: TripView): Itinerary {
     return {
       day: i + 1,
       date,
-      title: first ? `Arrive & settle into ${trip.stay.area}` : last ? "Slow morning & head home" : `${s(i * 2)} & ${s(i * 2 + 1)}`,
-      morning: first ? `Arrive in ${trip.toCity} and check in at ${trip.stay.name}. Freshen up and grab breakfast nearby.` : last ? `Pack up and check out. If time allows, a quick visit to ${s(i * 2)}.` : `Start early at ${s(i * 2)} to beat the crowds and the heat.`,
-      afternoon: first ? `Take an easy walk around ${trip.stay.area} to get your bearings.` : last ? "Pick up souvenirs and local snacks to take home." : `Head to ${s(i * 2 + 1)}; budget 2–3 hours here.`,
+      title: first ? `Arrive & settle into ${base.area}` : last ? "Slow morning & head home" : `${s(i * 2)} & ${s(i * 2 + 1)}`,
+      morning: first ? `Arrive in ${trip.toCity} and check in at ${base.name}. Freshen up and grab breakfast nearby.` : last ? `Pack up and check out. If time allows, a quick visit to ${s(i * 2)}.` : `Start early at ${s(i * 2)} to beat the crowds and the heat.`,
+      afternoon: first ? `Take an easy walk around ${base.area} to get your bearings.` : last ? "Pick up souvenirs and local snacks to take home." : `Head to ${s(i * 2 + 1)}; budget 2–3 hours here.`,
       evening: first ? `Sunset at ${s(0)}, then an early night.` : last ? "Leave for the station/airport with plenty of buffer time." : `Unwind and explore the evening markets near ${pickArea(city?.areas, i)}.`,
       food: resto ? `Dinner at ${resto.name} (${resto.area}); order the ${resto.mustTry}.` : `Try ${dishes[i % dishes.length]}.`,
       tip: ["Use app cabs or prepaid autos and agree on fares upfront.", "Carry a reusable water bottle and some cash for small vendors.", "Most monuments are closed one day a week; check timings before you go.", "Dress modestly when visiting temples and religious sites.", "Book popular activities a day in advance on weekends."][i % 5],
     };
   });
   return {
-    summary: `A ${trip.days}-day trip to ${trip.toCity} covering its highlights at a relaxed pace, based at ${trip.stay.name} in ${trip.stay.area}.`,
+    summary: `A ${trip.days}-day trip to ${trip.toCity} covering its highlights at a relaxed pace, based at ${base.name} in ${base.area}.`,
     source: "template",
     days,
     packing: ["Government photo ID (originals)", "Comfortable walking shoes", "Sunscreen & sunglasses", "Power bank", "Light jacket", "Basic medicines", "Reusable water bottle"],

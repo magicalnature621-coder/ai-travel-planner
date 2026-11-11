@@ -16,9 +16,9 @@ export type TripView = {
   roundTrip: boolean;
   travellers: number;
   days: number;
-  outbound: LegSelection;
+  outbound: LegSelection | null;
   returnLeg: LegSelection | null;
-  stay: StayOption;
+  stay: StayOption | null;
   restaurants: Restaurant[];
   travellerDetails: TravellerDetail[] | null;
   contact: Contact | null;
@@ -33,6 +33,15 @@ export type TripView = {
   notifications: NotificationLog | null;
   payment: { method: string; reference: string; mode: string } | null;
 };
+
+export function tripTitle(t: { fromCity: string; toCity: string; outbound: unknown; returnLeg: unknown }) {
+  return t.outbound || t.returnLeg ? `${t.fromCity} → ${t.toCity}` : `Stay in ${t.toCity}`;
+}
+
+export function tripKind(t: { outbound: unknown; returnLeg: unknown; stay: unknown }) {
+  const travel = Boolean(t.outbound || t.returnLeg);
+  return travel && t.stay ? "Travel + stay" : travel ? "Travel only" : "Stay only";
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function asTrip(t: any): TripView {

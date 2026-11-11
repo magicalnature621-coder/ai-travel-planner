@@ -23,9 +23,9 @@ export async function confirmTrip(id: string, payment: { mode: string; method: s
       confirmedAt: new Date(),
       payment,
       bookingRef: "ATP" + code(7),
-      outboundPnr: supplierRef(draft.outbound.option.mode),
+      outboundPnr: draft.outbound ? supplierRef(draft.outbound.option.mode) : null,
       returnPnr: draft.returnLeg ? supplierRef(draft.returnLeg.option.mode) : null,
-      stayConfirmation: (draft.stay.kind === "hotel" ? "HTL-" : "HST-") + code(8),
+      stayConfirmation: draft.stay ? (draft.stay.kind === "hotel" ? "HTL-" : "HST-") + code(8) : null,
     },
   });
   const notifications = await sendConfirmations(asTrip(updated));

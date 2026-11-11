@@ -25,7 +25,7 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, stayKind }: { tripId: string; amount: number; razorpay: boolean; prefill: { name: string; email: string; contact: string }; legs: string[]; stayKind: string }) {
+export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, stayKind }: { tripId: string; amount: number; razorpay: boolean; prefill: { name: string; email: string; contact: string }; legs: { label: string; mode: string }[]; stayKind: string | null }) {
   const router = useRouter();
   const [method, setMethod] = useState<"card" | "upi">("upi");
   const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: prefill.name });
@@ -36,8 +36,8 @@ export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, s
 
   const stages = [
     "Verifying payment",
-    ...legs.map((m, i) => `Booking your ${i === 0 ? "onward" : "return"} ${m}`),
-    `Confirming your ${stayKind}`,
+    ...legs.map((l) => `Booking your ${l.label} ${l.mode}`),
+    ...(stayKind ? [`Confirming your ${stayKind}`] : []),
     "Sending tickets to email & WhatsApp",
   ];
 

@@ -13,9 +13,9 @@ const Body = z.object({
   days: z.number().int().min(1).max(30),
   travellers: z.number().int().min(1).max(9),
   roundTrip: z.boolean(),
-  outbound: Leg,
+  outbound: Leg.nullable().optional(),
   inbound: Leg.nullable().optional(),
-  stayId: z.string(),
+  stayId: z.string().nullable().optional(),
   restaurantIds: z.array(z.string()).optional(),
 });
 
@@ -35,13 +35,15 @@ export async function POST(req: Request) {
     const fare = option?.fares.find((f) => f.code === leg.fare);
     return option && fare ? { option, fare } : undefined;
   };
+  // Travel and stay are both optional: book either one, or both.
   const outbound = resolve(results.outbound, b.outbound);
   const inbound = b.roundTrip ? resolve(results.inbound, b.inbound) : null;
-  const stay = results.stays.find((s) => s.id === b.stayId);
+  const stay = b.stayId ? results.stays.find((s) => s.id === b.stayId) : null;
 
-  if (!outbound) return NextResponse.json({ error: "Please select your onward travel" }, { status: 400 });
-  if (b.roundTrip && !inbound) return NextResponse.json({ error: "Please select your return travel" }, { status: 400 });
-  if (!stay) return NextResponse.json({ error: "Please select a place to stay" }, { status: 400 });
+  if (outbound === undefined || inbound === undefined || stay === undefined)
+    return NextResponse.json({ error: "That option is no longer available. Please search again." }, { status: 400 });
+  if (!outbound && !inbound && !stay)
+    return NextResponse.json({ error: "Select travel, a stay, or both to continue" }, { status: 400 });
 
   const price = priceBreakdown({ travellers: b.travellers, outbound, inbound, stay });
   const saved = results.restaurants.filter((r) => b.restaurantIds?.includes(r.id));
@@ -57,9 +59,9 @@ export async function POST(req: Request) {
       roundTrip: b.roundTrip,
       travellers: b.travellers,
       days: b.days,
-      outbound,
+      outbound: outbound ?? undefined,
       returnLeg: inbound ?? undefined,
-      stay,
+      stay: stay ?? undefined,
       restaurants,
       totalAmount: price.total,
     },

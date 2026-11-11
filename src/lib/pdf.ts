@@ -64,7 +64,7 @@ async function base() {
 }
 
 export async function ticketPdf(trip: TripView, which: "outbound" | "return"): Promise<Uint8Array> {
-  const leg = which === "outbound" ? trip.outbound : trip.returnLeg!;
+  const leg = (which === "outbound" ? trip.outbound : trip.returnLeg)!;
   const pnr = (which === "outbound" ? trip.outboundPnr : trip.returnPnr) ?? "-";
   const o = leg.option;
   const kind = o.mode === "flight" ? "E-Ticket / Boarding Pass" : o.mode === "train" ? "Electronic Reservation Slip" : "Bus E-Ticket";
@@ -92,15 +92,16 @@ export async function ticketPdf(trip: TripView, which: "outbound" | "return"): P
 }
 
 export async function stayPdf(trip: TripView): Promise<Uint8Array> {
-  const s = trip.stay;
+  const s = trip.stay!;
   const { doc, ctx } = await base();
   header(ctx, "Stay Confirmation Voucher", `Booking ${trip.bookingRef}`);
   section(ctx, "Property");
   row(ctx, [["Confirmation No.", trip.stayConfirmation ?? "-"], ["Property", s.name]]);
-  row(ctx, [["Location", `${s.area}, ${trip.toCity}`], ["Type", s.kind === "hotel" ? `${s.stars}-star hotel` : "Hostel"], ["Guest rating", `${s.rating} / 5`]]);
+  row(ctx, [["Address", s.address ?? `${s.area}, ${trip.toCity}`]]);
+  row(ctx, [["Type", s.kind === "hotel" ? `${s.stars}-star hotel` : "Hostel"], ["Guest rating", `${s.rating} / 5`], ["Area", s.area]]);
   const checkout = new Date(trip.departDate);
   checkout.setUTCDate(checkout.getUTCDate() + s.nights);
-  row(ctx, [["Check-in", `${fmtDate(trip.departDate)}, 12:00`], ["Check-out", `${fmtDate(checkout)}, 11:00`], ["Nights", String(s.nights)]]);
+  row(ctx, [["Check-in", `${fmtDate(trip.departDate)}, ${s.checkIn ?? "12:00"}`], ["Check-out", `${fmtDate(checkout)}, ${s.checkOut ?? "11:00"}`], ["Nights", String(s.nights)]]);
   row(ctx, [["Room", s.roomType], [s.unitLabel === "room" ? "Rooms" : "Beds", String(s.units)], ["Guests", String(trip.travellers)]]);
   row(ctx, [["Breakfast", s.breakfast ? "Included" : "Not included"], ["Cancellation", s.freeCancellation ? "Free until 24h before" : "Non-refundable"], ["Amount paid", rs(s.total)]]);
   section(ctx, "Guests");

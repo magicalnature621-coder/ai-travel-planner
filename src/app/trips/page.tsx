@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, Plane } from "lucide-react";
+import { ArrowRight, BedDouble, Plane } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { asTrip } from "@/lib/types";
+import { asTrip, tripTitle } from "@/lib/types";
 import { inr } from "@/lib/inventory";
 import { ModeIcon } from "@/components/TransportCard";
 
@@ -38,13 +38,13 @@ export default async function TripsPage() {
               <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-fuchsia-500 text-2xl font-black text-white">{t.toCity[0]}</div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-extrabold">{t.fromCity} → {t.toCity}</p>
+                  <p className="text-lg font-extrabold">{tripTitle(t)}</p>
                   <span className={`chip ${upcoming ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>{upcoming ? "Upcoming" : "Completed"}</span>
                 </div>
                 <p className="text-sm text-slate-500">{pretty(t.departDate)}{t.returnDate && ` – ${pretty(t.returnDate)}`} · {t.travellers} traveller{t.travellers > 1 ? "s" : ""} · Ref {t.bookingRef}</p>
-                <p className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1"><ModeIcon mode={t.outbound.option.mode} className="h-3.5 w-3.5" />{t.outbound.option.operator}</span>
-                  <span>· {t.stay.name}</span>
+                <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  {(t.outbound ?? t.returnLeg) && <span className="inline-flex items-center gap-1"><ModeIcon mode={(t.outbound ?? t.returnLeg)!.option.mode} className="h-3.5 w-3.5" />{(t.outbound ?? t.returnLeg)!.option.operator}</span>}
+                  {t.stay && <span className="inline-flex items-center gap-1"><BedDouble className="h-3.5 w-3.5" />{t.stay.name}</span>}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -62,7 +62,7 @@ export default async function TripsPage() {
           <div className="mt-3 grid gap-2">
             {drafts.slice(0, 5).map((t) => (
               <Link key={t.id} href={`/book/${t.id}/${t.travellerDetails ? "payment" : "details"}`} className="flex items-center justify-between rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm hover:border-brand-400">
-                <span><b>{t.fromCity} → {t.toCity}</b> · {pretty(t.departDate)} · {inr(t.totalAmount)}</span>
+                <span><b>{tripTitle(t)}</b> · {pretty(t.departDate)} · {inr(t.totalAmount)}</span>
                 <span className="font-semibold text-brand-600">Resume →</span>
               </Link>
             ))}

@@ -20,15 +20,15 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-6xl px-4 py-8">
       <BookingSteps current={2} />
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Payment</h1>
-      <p className="mt-1 text-slate-500">One payment books your travel and stay. You&apos;ll get tickets on email and WhatsApp right away.</p>
+      <p className="mt-1 text-slate-500">One payment books everything you selected. You&apos;ll get tickets on email and WhatsApp right away.</p>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <PaymentForm
           tripId={trip.id}
           amount={trip.totalAmount}
           razorpay={integrations.razorpay()}
           prefill={{ name: user.name, email: trip.contact?.email ?? user.email, contact: trip.contact?.phone ?? user.phone }}
-          legs={[trip.outbound.option.mode, trip.returnLeg?.option.mode].filter(Boolean) as string[]}
-          stayKind={trip.stay.kind}
+          legs={[trip.outbound ? { label: "onward", mode: trip.outbound.option.mode } : null, trip.returnLeg ? { label: "return", mode: trip.returnLeg.option.mode } : null].filter((l) => l !== null)}
+          stayKind={trip.stay?.kind ?? null}
         />
         <TripSummary trip={trip} />
       </div>

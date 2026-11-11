@@ -28,9 +28,9 @@ model Trip {
   roundTrip        Boolean   @default(true)
   travellers       Int
   days             Int
-  outbound         Json
+  outbound         Json?
   returnLeg        Json?
-  stay             Json
+  stay             Json?
   restaurants      Json?
   travellerDetails Json?
   contact          Json?

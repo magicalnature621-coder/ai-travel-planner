@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BedDouble, CalendarDays, CheckCircle2, Coffee, Download, Lightbulb, Mail, MapPin, Moon, PartyPopper, RefreshCw, Sparkles, Sun, Sunrise, Ticket, UtensilsCrossed, MessageCircle, Backpack, Star } from "lucide-react";
-import type { Itinerary, TripView } from "@/lib/types";
+import { tripTitle, type Itinerary, type TripView } from "@/lib/types";
+import StayPhoto from "./StayPhoto";
 import { formatDuration, inr } from "@/lib/inventory";
 import { ModeIcon } from "./TransportCard";
 import RestaurantCard from "./RestaurantCard";
@@ -31,12 +32,12 @@ export default function TripDetail({ trip, justBooked }: { trip: TripView & { de
     if (!trip.itinerary) generate();
   }, [trip.itinerary, generate]);
 
-  const tabs: { k: Tab; label: string; icon: React.ElementType }[] = [
-    { k: "itinerary", label: "Itinerary", icon: Sparkles },
-    { k: "tickets", label: "Travel tickets", icon: Ticket },
-    { k: "stay", label: "Stay confirmation", icon: BedDouble },
-    { k: "food", label: "Where to eat", icon: UtensilsCrossed },
-  ];
+  const tabs = ([
+    { k: "itinerary", label: "Itinerary", icon: Sparkles, show: true },
+    { k: "tickets", label: "Travel tickets", icon: Ticket, show: Boolean(trip.outbound || trip.returnLeg) },
+    { k: "stay", label: "Stay confirmation", icon: BedDouble, show: Boolean(trip.stay) },
+    { k: "food", label: "Where to eat", icon: UtensilsCrossed, show: true },
+  ] as { k: Tab; label: string; icon: React.ElementType; show: boolean }[]).filter((t) => t.show);
 
   return (
     <main className="pb-20">
@@ -48,12 +49,12 @@ export default function TripDetail({ trip, justBooked }: { trip: TripView & { de
               <PartyPopper className="h-6 w-6 text-emerald-300" />
               <div>
                 <p className="font-bold">Booking confirmed! You&apos;re going to {trip.toCity}.</p>
-                <p className="text-sm text-emerald-100/80">Your tickets and stay voucher are on their way to your email and WhatsApp.</p>
+                <p className="text-sm text-emerald-100/80">Your confirmation documents are on their way to your email and WhatsApp.</p>
               </div>
             </div>
           )}
           <Link href="/trips" className="text-sm text-brand-200 hover:text-white">← My Trips</Link>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">{trip.fromCity} → {trip.toCity}</h1>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">{tripTitle(trip)}</h1>
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-brand-100">
             <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{pretty(trip.departDate)}{trip.returnDate && ` – ${pretty(trip.returnDate)}`}</span>
             <span>{trip.travellers} traveller{trip.travellers > 1 ? "s" : ""}</span>
@@ -87,11 +88,11 @@ export default function TripDetail({ trip, justBooked }: { trip: TripView & { de
         )}
         {tab === "tickets" && (
           <div className="grid gap-6 lg:grid-cols-2">
-            <TicketCard trip={trip} which="outbound" />
+            {trip.outbound && <TicketCard trip={trip} which="outbound" />}
             {trip.returnLeg && <TicketCard trip={trip} which="return" />}
           </div>
         )}
-        {tab === "stay" && <StayVoucher trip={trip} />}
+        {tab === "stay" && trip.stay && <StayVoucher trip={trip} />}
         {tab === "food" && (
           <div className="grid gap-3 md:grid-cols-2">
             {trip.restaurants.map((r) => <RestaurantCard key={r.id} r={r} saved onToggle={() => {}} />)}
@@ -166,7 +167,7 @@ const Slot = ({ icon, label, text }: { icon: React.ReactNode; label: string; tex
 );
 
 function TicketCard({ trip, which }: { trip: TripView; which: "outbound" | "return" }) {
-  const leg = which === "outbound" ? trip.outbound : trip.returnLeg!;
+  const leg = (which === "outbound" ? trip.outbound : trip.returnLeg)!;
   const pnr = which === "outbound" ? trip.outboundPnr : trip.returnPnr;
   const o = leg.option;
   return (
@@ -206,13 +207,14 @@ function TicketCard({ trip, which }: { trip: TripView; which: "outbound" | "retu
 }
 
 function StayVoucher({ trip }: { trip: TripView & { departDate: string } }) {
-  const s = trip.stay;
+  const s = trip.stay!;
   const checkout = new Date(trip.departDate);
   checkout.setUTCDate(checkout.getUTCDate() + s.nights);
   return (
     <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div className="relative h-36" style={{ background: `linear-gradient(135deg, hsl(${s.hue} 70% 62%), hsl(${(s.hue + 50) % 360} 65% 45%))` }}>
-        <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:14px_14px]" />
+      <div className="relative h-48">
+        <StayPhoto src={s.photos?.[0]} hue={s.hue} alt={s.name} className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
         <div className="absolute bottom-4 left-5 text-white">
           <p className="text-xs font-semibold uppercase tracking-wider opacity-90">{s.kind === "hotel" ? `${s.stars}-star hotel` : "Hostel"}</p>
           <p className="text-2xl font-extrabold">{s.name}</p>
@@ -225,8 +227,8 @@ function StayVoucher({ trip }: { trip: TripView & { departDate: string } }) {
           <span className="text-sm text-emerald-900">Confirmation no. <b className="font-mono">{trip.stayConfirmation}</b></span>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-          <Field k="Check-in" v={`${pretty(trip.departDate)}, 12:00`} />
-          <Field k="Check-out" v={`${pretty(checkout.toISOString())}, 11:00`} />
+          <Field k="Check-in" v={`${pretty(trip.departDate)}, ${s.checkIn ?? "12:00"}`} />
+          <Field k="Check-out" v={`${pretty(checkout.toISOString())}, ${s.checkOut ?? "11:00"}`} />
           <Field k="Room" v={s.roomType} />
           <Field k={s.unitLabel === "room" ? "Rooms" : "Beds"} v={`${s.units} · ${trip.travellers} guest${trip.travellers > 1 ? "s" : ""}`} />
         </div>
@@ -235,6 +237,12 @@ function StayVoucher({ trip }: { trip: TripView & { departDate: string } }) {
           <span className={`chip ${s.freeCancellation ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{s.freeCancellation ? "Free cancellation until 24h before" : "Non-refundable"}</span>
           {s.amenities.map((a) => <span key={a} className="chip border-slate-200 bg-slate-50 text-slate-600">{a}</span>)}
         </div>
+        {s.address && (
+          <p className="mt-4 flex items-start gap-2 text-sm text-slate-600">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+            <span>{s.address} · <a className="font-semibold text-brand-600 hover:underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`}>Open in Google Maps</a></span>
+          </p>
+        )}
         <div className="mt-5 border-t border-slate-100 pt-4">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Guests</p>
           <p className="mt-1 text-sm">{(trip.travellerDetails ?? []).map((p) => p.name).join(", ")}</p>

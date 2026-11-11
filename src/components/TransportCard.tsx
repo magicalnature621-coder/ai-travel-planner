@@ -1,6 +1,7 @@
 "use client";
 
-import { Bus, Plane, TrainFront, Check } from "lucide-react";
+import { useState } from "react";
+import { Bus, Plane, TrainFront, Check, ChevronDown, Info, ShieldCheck, Sparkles } from "lucide-react";
 import { formatDuration, inr, type TransportOption } from "@/lib/inventory";
 
 export const ModeIcon = ({ mode, className = "h-4 w-4" }: { mode: string; className?: string }) =>
@@ -14,6 +15,7 @@ const MODE_STYLE: Record<string, string> = {
 
 export default function TransportCard({ o, selectedFare, onSelect, travellers }: { o: TransportOption; selectedFare?: string; onSelect: (fare: string) => void; travellers: number }) {
   const selected = Boolean(selectedFare);
+  const [open, setOpen] = useState(false);
   return (
     <div className={`card p-4 transition ${selected ? "border-brand-500 ring-4 ring-brand-100" : "hover:border-slate-300"}`}>
       <div className="flex items-center justify-between gap-2">
@@ -75,6 +77,40 @@ export default function TransportCard({ o, selectedFare, onSelect, travellers }:
           );
         })}
       </div>
+
+      {o.details && (
+        <>
+          <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-bold text-brand-600 hover:bg-brand-50">
+            {open ? "Hide details" : `${o.mode === "flight" ? "Flight" : o.mode === "train" ? "Train" : "Bus"} details, amenities & cancellation`}
+            <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
+          </button>
+          {open && (
+            <div className="mt-2 space-y-4 border-t border-slate-100 pt-4 text-sm">
+              <dl className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
+                {o.details.facts.map((f) => (
+                  <div key={f.label}>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{f.label}</dt>
+                    <dd className="font-medium text-slate-800">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><Sparkles className="h-3.5 w-3.5" /> On board</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {o.details.amenities.map((a) => <span key={a} className="chip border-slate-200 bg-slate-50 text-slate-600">{a}</span>)}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> Cancellation & rules</p>
+                <ul className="list-disc space-y-1 pl-5 text-slate-600">
+                  {o.details.policies.map((p) => <li key={p}>{p}</li>)}
+                </ul>
+              </div>
+              {o.details.note && <p className="flex gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sky-900"><Info className="mt-0.5 h-4 w-4 shrink-0" />{o.details.note}</p>}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

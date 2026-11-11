@@ -17,8 +17,8 @@ export default async function DetailsPage({ params }: { params: Promise<{ id: st
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <BookingSteps current={1} />
-      <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Who&apos;s travelling?</h1>
-      <p className="mt-1 text-slate-500">Names must match the photo ID you&apos;ll carry. We use these details to book every ticket and your stay.</p>
+      <h1 className="mt-6 text-3xl font-extrabold tracking-tight">{trip.outbound || trip.returnLeg ? "Who\u2019s travelling?" : "Guest details"}</h1>
+      <p className="mt-1 text-slate-500">Names must match the photo ID you&apos;ll carry. We use these details for everything you&apos;re booking.</p>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <TravellerForm
           tripId={trip.id}

@@ -11,6 +11,13 @@ export type Mode = "flight" | "train" | "bus";
 
 export type Fare = { code: string; label: string; price: number; seatsLeft: number; perks: string[] };
 
+export type TransportDetails = {
+  facts: { label: string; value: string }[];
+  amenities: string[];
+  policies: string[];
+  note?: string;
+};
+
 export type TransportOption = {
   id: string;
   mode: Mode;
@@ -26,7 +33,9 @@ export type TransportOption = {
   arriveDayOffset: number;
   durationMins: number;
   stops: number;
+  distanceKm: number;
   fares: Fare[];
+  details: TransportDetails;
 };
 
 export type StayOption = {
@@ -46,7 +55,17 @@ export type StayOption = {
   total: number;
   freeCancellation: boolean;
   breakfast: boolean;
-  hue: number; // used for the card artwork
+  hue: number; // used for the card artwork / image fallback
+  description: string;
+  address: string;
+  lat: number;
+  lng: number;
+  checkIn: string;
+  checkOut: string;
+  photos: string[];
+  allAmenities: string[];
+  nearby: { name: string; km: number }[];
+  policies: string[];
 };
 
 export type Restaurant = {
@@ -147,6 +166,8 @@ function flights(from: City, to: City, date: string): TransportOption[] {
     const duration = round(50 + km / 11.5 + stops * between(r, 70, 160), 5);
     const dep = between(r, 5 * 60, 22 * 60);
     const base = round(1800 + km * between(r, 28, 48) / 10 * (stops ? 0.85 : 1) + r() * 1500, 1);
+    const aircraft = km < 600 && r() < 0.4 ? "ATR 72-600 (turboprop)" : pick(r, ["Airbus A320neo", "Airbus A321neo", "Boeing 737-8", "Airbus A320"]);
+    const via = stops ? pick(r, ["Delhi", "Mumbai", "Bengaluru", "Hyderabad"].filter((c) => c !== from.name && c !== to.name)) : "";
     out.push({
       id: `FL-${airline.code}${between(r, 100, 999)}-${date}-${i}`,
       mode: "flight",
@@ -162,6 +183,26 @@ function flights(from: City, to: City, date: string): TransportOption[] {
       arriveDayOffset: Math.floor((dep + duration) / 1440),
       durationMins: duration,
       stops,
+      distanceKm: km,
+      details: {
+        facts: [
+          { label: "Aircraft", value: aircraft },
+          { label: "Departure terminal", value: `${from.airport} · Terminal ${pick(r, ["1", "2", "1D", "3"])}` },
+          { label: "Arrival terminal", value: `${to.airport} · Terminal ${pick(r, ["1", "2"])}` },
+          { label: "Stops", value: stops ? `1 stop via ${via} (${between(r, 50, 140)} min layover)` : "Non-stop" },
+          { label: "On-time performance", value: `${between(r, 74, 95)}% last 30 days` },
+          { label: "Seat pitch", value: aircraft.startsWith("ATR") ? "29–30 inches" : "29–31 inches (Economy)" },
+          { label: "Distance", value: `${km.toLocaleString("en-IN")} km` },
+        ],
+        amenities: ["Meals & snacks for purchase", "USB charging (select seats)", "Web check-in 48h before", "Wheelchair assistance on request"],
+        policies: [
+          "Saver: cancellation fee ₹3,500 per person; date change ₹2,999 + fare difference",
+          "Flexi: cancellation fee ₹999; one free date change",
+          "Business: free cancellation up to 24h before departure",
+          "Check-in counters close 45 minutes before departure",
+        ],
+        note: "Carry a government photo ID. DigiYatra is available at major airports.",
+      },
       fares: [
         { code: "SAVER", label: "Saver", price: base, seatsLeft: between(r, 2, 9), perks: ["7 kg cabin", "15 kg check-in"] },
         { code: "FLEXI", label: "Flexi", price: round(base * 1.22, 1), seatsLeft: between(r, 3, 12), perks: ["Free date change", "Free seat", "15 kg check-in"] },
@@ -183,6 +224,9 @@ function trains(from: City, to: City, date: string): TransportOption[] {
     const duration = round((km / type.speed) * 60, 5);
     const dep = between(r, 0, 23 * 60);
     const number = String(between(r, 12001, 22999));
+    const daily = r() < 0.5;
+    const runDays = daily ? "Daily" : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].filter(() => r() < 0.6).join(", ") || "Mon, Thu, Sat";
+    const pantry = type.name !== "Mail Express" || r() < 0.3;
     out.push({
       id: `TR-${number}-${date}-${i}`,
       mode: "train",
@@ -198,6 +242,27 @@ function trains(from: City, to: City, date: string): TransportOption[] {
       arriveDayOffset: Math.floor((dep + duration) / 1440),
       durationMins: duration,
       stops: Math.max(1, Math.round(km / 180)),
+      distanceKm: km,
+      details: {
+        facts: [
+          { label: "Train type", value: type.name },
+          { label: "Runs on", value: runDays },
+          { label: "Boarding station", value: `${from.name} (${from.station}) · Platform ${between(r, 1, 12)} (expected)` },
+          { label: "Destination station", value: `${to.name} (${to.station})` },
+          { label: "Distance", value: `${km.toLocaleString("en-IN")} km` },
+          { label: "Average speed", value: `${type.speed} km/h` },
+          { label: "Halts", value: `${Math.max(1, Math.round(km / 180))} scheduled halts` },
+          { label: "Coaches", value: type.classes.map((c) => c).join(" · ") + " · General" },
+        ],
+        amenities: [pantry ? "Pantry car (meals on board)" : "No pantry car; e-catering available at major stations", "Bedding provided in AC classes", "Charging points", "Bio-toilets", "Live train status"],
+        policies: [
+          "Cancel 48h+ before departure: flat fee (₹60 SL · ₹180 3A · ₹200 2A · ₹240 1A/EC)",
+          "Cancel 12–48h before: 25% of fare (minimum flat fee)",
+          "Cancel 4–12h before: 50% of fare",
+          "No refund on confirmed tickets after chart preparation (4h before departure)",
+        ],
+        note: "Carry the original ID used while booking. Chart is prepared about 4 hours before departure.",
+      },
       fares: type.classes.map((c) => ({
         code: c,
         label: TRAIN_CLASS[c].label,
@@ -221,6 +286,9 @@ function buses(from: City, to: City, date: string): TransportOption[] {
     const type = pick(r, BUS_TYPES);
     const duration = round((km / between(r, 45, 58)) * 60, 5);
     const dep = between(r, 16 * 60, 23 * 60 + 30); // mostly overnight buses
+    const boarding = pick(r, from.areas);
+    const dropping = pick(r, to.areas);
+    const restStops = Math.max(1, Math.round(km / 300));
     out.push({
       id: `BS-${hash(op) % 1000}-${date}-${i}`,
       mode: "bus",
@@ -228,14 +296,33 @@ function buses(from: City, to: City, date: string): TransportOption[] {
       number: type.label,
       fromCity: from.name,
       toCity: to.name,
-      fromCode: from.areas[0],
-      toCode: to.areas[0],
+      fromCode: boarding,
+      toCode: dropping,
       date,
       departTime: fmtTime(dep),
       arriveTime: fmtTime(dep + duration),
       arriveDayOffset: Math.floor((dep + duration) / 1440),
       durationMins: duration,
       stops: Math.round(km / 250),
+      distanceKm: km,
+      details: {
+        facts: [
+          { label: "Bus type", value: type.label },
+          { label: "Boarding point", value: `${boarding}, ${from.name} · report by ${fmtTime(dep - 15)}` },
+          { label: "Dropping point", value: `${dropping}, ${to.name}` },
+          { label: "Rest stops", value: `${restStops} stop${restStops > 1 ? "s" : ""} for food & washrooms` },
+          { label: "Distance", value: `${km.toLocaleString("en-IN")} km` },
+          { label: "Operator rating", value: `${(3.8 + r() * 1.0).toFixed(1)} / 5 (${between(r, 300, 9000).toLocaleString("en-IN")} ratings)` },
+        ],
+        amenities: [...type.perks, "Live GPS tracking", "CCTV", "Emergency contact", ...(type.mult >= 1.6 ? ["Blanket", "Reading light"] : [])],
+        policies: [
+          "Cancel 24h+ before departure: 10% charge",
+          "Cancel 12–24h before: 25% charge",
+          "Cancel 4–12h before: 50% charge",
+          "No refund within 4 hours of departure",
+        ],
+        note: "The operator shares the bus number and driver contact on WhatsApp 2–3 hours before departure.",
+      },
       fares: [{ code: "STD", label: type.label, price: round(250 + km * type.mult * 0.9, 5), seatsLeft: between(r, 2, 30), perks: type.perks }],
     });
   }
@@ -250,6 +337,22 @@ export function transportFor(fromName: string, toName: string, date: string): Tr
 }
 
 // ---------- stays ----------
+// Free-to-use Unsplash photos. If one fails to load, the UI falls back to an illustration.
+const U = (id: string) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=70`;
+const HOTEL_PHOTOS = [
+  "1566073771259-6a8506099945", "1582719478250-c89cae4dc85b", "1551882547-ff40c63fe5fa", "1611892440504-42a792e24d32",
+  "1590490360182-c33d57733427", "1520250497591-112f2f40a3f4", "1542314831-068cd1dbfeeb", "1631049307264-da0ec9d70304",
+  "1564501049412-61c2a3083791", "1571896349842-33c89424de2d", "1578683010236-d716f9a3f461", "1445019980597-93fa8acb246c",
+];
+const HOSTEL_PHOTOS = [
+  "1555854877-bab0e564b8d5", "1520277739336-7bf67edfa768", "1596276020587-8044fe049813", "1529408686214-b48b8532f72c",
+  "1554995207-c18c203602cb", "1522708323590-d24dbb6b0267", "1505693416388-ac5ce068fe85",
+];
+const photosFor = (r: () => number, ids: string[]) => {
+  const start = Math.floor(r() * ids.length);
+  return Array.from({ length: 5 }, (_, i) => U(ids[(start + i * 3) % ids.length]));
+};
+
 const HOTEL_NAMES = ["Saffron Grand", "Banyan Retreat", "Sapphire Suites", "Lotus Courtyard", "Monsoon House", "Indigo Heights", "Peacock Palace", "Marigold Inn", "Coral Bay Resort", "Sandalwood Residency", "Ivory Towers", "Jasmine Boutique Hotel"];
 const HOSTEL_NAMES = ["Nomad Nest", "Bunk & Chai", "Drifters Hub", "Trail Tribe Hostel", "Roam Hostel", "Wanderers' Den", "Backpack Bazaar"];
 const HOTEL_AMENITIES = ["Free Wi-Fi", "Pool", "Spa", "Gym", "Airport shuttle", "Restaurant", "Bar", "Room service", "Parking", "Rooftop"];
@@ -286,6 +389,7 @@ export function staysFor(toName: string, date: string, nights: number, traveller
       freeCancellation: r() < 0.6,
       breakfast: r() < 0.55 || stars === 5,
       hue: between(r, 0, 360),
+      ...stayExtras(r, city, "hotel", stars, [...HOTEL_AMENITIES].sort(() => r() - 0.5).slice(0, 4 + stars)),
     });
   }
   const hostelCount = between(r, 3, 4);
@@ -310,9 +414,38 @@ export function staysFor(toName: string, date: string, nights: number, traveller
       freeCancellation: r() < 0.7,
       breakfast: r() < 0.4,
       hue: between(r, 0, 360),
+      ...stayExtras(r, city, "hostel", 0, [...HOSTEL_AMENITIES].sort(() => r() - 0.5).slice(0, 6)),
     });
   }
   return out;
+}
+
+function stayExtras(r: () => number, city: City, kind: "hotel" | "hostel", stars: number, amenities: string[]) {
+  const lat = Math.round((city.lat + (r() - 0.5) * 0.06) * 1e5) / 1e5;
+  const lng = Math.round((city.lng + (r() - 0.5) * 0.06) * 1e5) / 1e5;
+  const area = pick(r, city.areas);
+  const nearby = [...city.attractions].sort(() => r() - 0.5).slice(0, 4).map((name) => ({ name, km: Math.round((0.4 + r() * 7) * 10) / 10 })).sort((a, b) => a.km - b.km);
+  const description =
+    kind === "hotel"
+      ? `${stars >= 5 ? "An elegant luxury property" : stars === 4 ? "A stylish, well-reviewed hotel" : "A comfortable, good-value hotel"} in ${area}, ${city.name}. Rooms come with air-conditioning, a smart TV, tea/coffee maker and a private bathroom${stars >= 4 ? ", and guests rate the service and breakfast highly" : ""}. ${nearby[0].name} is just ${nearby[0].km} km away.`
+      : `A social, design-forward hostel in ${area}, ${city.name}, popular with solo travellers and groups. Every bed has a privacy curtain, reading light, personal locker and charging point. Join daily community events or relax in the common lounge. ${nearby[0].name} is ${nearby[0].km} km away.`;
+  return {
+    description,
+    address: `${between(r, 4, 220)}, ${pick(r, ["Main Road", "Station Road", "Lake View Road", "Temple Street", "Beach Road", "MG Road"])}, ${area}, ${city.name}, ${city.state}`,
+    lat,
+    lng,
+    checkIn: kind === "hotel" ? "12:00" : "13:00",
+    checkOut: kind === "hotel" ? "11:00" : "10:00",
+    photos: photosFor(r, kind === "hotel" ? HOTEL_PHOTOS : HOSTEL_PHOTOS),
+    allAmenities: ["Free Wi-Fi", "Air-conditioning", "24-hour front desk", "Housekeeping", ...amenities.filter((a) => a !== "Free Wi-Fi")],
+    nearby,
+    policies: [
+      "Valid government photo ID required for every guest at check-in",
+      kind === "hostel" ? "Guests must be 18+ to stay in dorms" : "Unmarried couples welcome with valid IDs",
+      kind === "hotel" ? "Extra bed available on request (charges apply)" : "Lockers available; bring your own padlock or buy one at reception",
+      "Pets not allowed · No smoking inside rooms",
+    ],
+  };
 }
 
 // ---------- restaurants ----------

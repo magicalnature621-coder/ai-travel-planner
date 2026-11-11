@@ -17,7 +17,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!trip || !allowed || trip.status !== "CONFIRMED") return new Response("Not found", { status: 404 });
 
   const t = asTrip(trip);
-  if (doc === "return" && !t.returnLeg) return new Response("Not found", { status: 404 });
+  if ((doc === "return" && !t.returnLeg) || (doc === "stay" && !t.stay) || (doc === "outbound" && !t.outbound))
+    return new Response("Not found", { status: 404 });
   const bytes = doc === "stay" ? await stayPdf(t) : await ticketPdf(t, doc === "return" ? "return" : "outbound");
   const name = `${doc === "stay" ? "stay-voucher" : `ticket-${doc}`}-${t.bookingRef}.pdf`;
   return new Response(Buffer.from(bytes), {
