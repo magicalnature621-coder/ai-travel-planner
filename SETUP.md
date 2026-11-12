@@ -6,7 +6,7 @@ The app runs **without any API keys**. Each integration switches on automaticall
 |---|---|---|
 | Database | — (required) | Neon Postgres |
 | AI itinerary | Template plan built from top attractions | Personalised plan written by Groq (free) or Claude |
-| Payments | Built-in demo checkout (no money moves) | PayPal sandbox checkout (or Razorpay) |
+| Payments | Built-in demo checkout (no money moves) | Razorpay checkout (test or live) |
 | Email tickets | Logged as "demo" | Real email with PDF tickets via Resend |
 | WhatsApp | Logged as "demo" | Real WhatsApp message via Twilio |
 | Trains | Sample trains | Real trains, seat availability and fares (RapidAPI IRCTC) |
@@ -53,23 +53,7 @@ Shows real Indian Railways trains for the route and date, and real seat availabi
 
 Not possible through any public API: coach-wise vacancy (only published after chart preparation, ~4h before departure) and real ticket booking (needs an IRCTC authorised-agent licence).
 
-## 4. Payments: PayPal developer platform (sandbox)
-Real PayPal checkout using the **JavaScript SDK (Smart Payment Buttons)** in the browser and the **Orders v2 REST API** on the server (create order → buyer approves → server captures and verifies status, booking id and amount before confirming).
-1. Go to **https://developer.paypal.com** → log in with any PayPal account (or sign up).
-2. **Apps & Credentials** → make sure the toggle says **Sandbox** → **Create App** (type: Merchant) → copy **Client ID** and **Secret**.
-3. Add to `.env`:
-   ```
-   PAYPAL_CLIENT_ID="..."
-   PAYPAL_CLIENT_SECRET="..."
-   PAYPAL_ENV="sandbox"
-   PAYPAL_CURRENCY="USD"
-   PAYPAL_INR_PER_USD="88"
-   ```
-4. To pay, use the **sandbox Personal (buyer) account**: developer.paypal.com → **Testing Tools → Sandbox Accounts** → open the `...personal.example.com` account → copy its email and password (use **View/Edit account**).
-
-Amounts are shown in INR and charged in USD in the sandbox (INR only works for India-registered PayPal accounts). When PayPal keys are set, they take priority over Razorpay and the demo checkout.
-
-## 4b. Payments: Razorpay (card + UPI), optional
+## 4. Payments: Razorpay (card + UPI)
 1. Go to **https://razorpay.com** → **Sign up** with your mobile/email.
 2. In the dashboard, switch the toggle at the top to **Test Mode**. Test mode needs no KYC.
 3. **Account & Settings → API Keys → Generate Test Key**. You get a *Key ID* (`rzp_test_...`) and *Key Secret*.
