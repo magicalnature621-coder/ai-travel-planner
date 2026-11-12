@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { integrations } from "@/lib/config";
 import { confirmTrip } from "@/lib/booking";
+import { captureOrder, paypalEnabled, PayPalError } from "@/lib/paypal";
 
 export const maxDuration = 60;
 
@@ -18,7 +19,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = await req.json().catch(() => ({}));
   let payment: { mode: string; method: string; reference: string };
 
-  if (integrations.razorpay()) {
+  if (paypalEnabled()) {
+    // Capture on the server and verify status, booking id and amount before confirming
+    try {
+      const c = await captureOrder(String(body.paypalOrderId ?? ""), trip.id, trip.totalAmount);
+      payment = { mode: "paypal", method: `PayPal${process.env.PAYPAL_ENV === "live" ? "" : " sandbox"} (${c.amount})`, reference: c.captureId };
+    } catch (e) {
+      console.error("[paypal]", (e as Error).message);
+      return NextResponse.json({ error: e instanceof PayPalError ? e.message : "PayPal payment could not be verified" }, { status: 400 });
+    }
+  } else if (integrations.razorpay()) {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
     const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest("hex");
     if (!razorpay_signature || expected !== razorpay_signature)

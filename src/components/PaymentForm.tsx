@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, CreditCard, Loader2, Lock, QrCode, ShieldCheck, Smartphone } from "lucide-react";
 import { inr } from "@/lib/inventory";
@@ -9,7 +9,22 @@ declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Razorpay?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    paypal?: any;
   }
+}
+
+type PayPalConfig = { clientId: string; currency: string; value: string; sandbox: boolean };
+
+function loadPayPal(clientId: string, currency: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.paypal) return resolve(true);
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${currency}&intent=capture&components=buttons`;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
 }
 
 const UPI_APPS = ["GPay", "PhonePe", "Paytm", "BHIM"];
@@ -25,7 +40,7 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, stayKind }: { tripId: string; amount: number; razorpay: boolean; prefill: { name: string; email: string; contact: string }; legs: { label: string; mode: string }[]; stayKind: string | null }) {
+export default function PaymentForm({ tripId, amount, razorpay, paypal, prefill, legs, stayKind }: { tripId: string; amount: number; razorpay: boolean; paypal?: PayPalConfig | null; prefill: { name: string; email: string; contact: string }; legs: { label: string; mode: string }[]; stayKind: string | null }) {
   const router = useRouter();
   const [method, setMethod] = useState<"card" | "upi">("upi");
   const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: prefill.name });
@@ -46,6 +61,38 @@ export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, s
     const t = setTimeout(() => setStage((s) => s + 1), 900);
     return () => clearTimeout(t);
   }, [stage, stages.length]);
+
+  // PayPal Smart Payment Buttons (sandbox): order is created and captured on our server
+  const paypalRef = useRef<HTMLDivElement>(null);
+  const [paypalState, setPaypalState] = useState<"loading" | "ready" | "failed">("loading");
+  useEffect(() => {
+    if (!paypal) return;
+    let cancelled = false;
+    loadPayPal(paypal.clientId, paypal.currency).then((ok) => {
+      if (cancelled || !paypalRef.current) return;
+      if (!ok || !window.paypal) return setPaypalState("failed");
+      paypalRef.current.innerHTML = "";
+      window.paypal
+        .Buttons({
+          style: { layout: "vertical", shape: "rect", label: "pay", height: 48 },
+          createOrder: async () => {
+            setError("");
+            const res = await fetch(`/api/trips/${tripId}/paypal-order`, { method: "POST" });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) { setError(json.error || "Couldn't start PayPal checkout"); throw new Error(json.error); }
+            return json.id;
+          },
+          onApprove: async (data: { orderID: string }) => { setBusy(true); await confirm({ paypalOrderId: data.orderID }); },
+          onCancel: () => setError("PayPal payment was cancelled. You have not been charged."),
+          onError: () => setError("PayPal couldn't complete the payment. Please try again."),
+        })
+        .render(paypalRef.current)
+        .then(() => !cancelled && setPaypalState("ready"))
+        .catch(() => !cancelled && setPaypalState("failed"));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paypal?.clientId, tripId]);
 
   async function confirm(body: object) {
     setStage(0);
@@ -107,6 +154,54 @@ export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, s
 
   const fmtCard = (v: string) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
   const fmtExp = (v: string) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d; };
+
+  const overlay = (
+    <>
+      {stage >= 0 && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="card w-full max-w-sm p-6">
+            <p className="text-lg font-extrabold">{stage >= stages.length ? "All booked! 🎉" : "Booking your trip…"}</p>
+            <ul className="mt-4 space-y-3">
+              {stages.map((s, i) => (
+                <li key={s} className="flex items-center gap-3 text-sm">
+                  {i < stage || stage >= stages.length ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : i === stage ? <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> : <span className="h-5 w-5 rounded-full border-2 border-slate-200" />}
+                  <span className={i <= stage ? "font-semibold" : "text-slate-400"}>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (paypal) {
+    return (
+      <div>
+        <div className="card overflow-hidden">
+          {paypal.sandbox && (
+            <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-5 py-2.5 text-xs font-medium text-sky-800">
+              <ShieldCheck className="h-4 w-4" /> PayPal sandbox: log in with a PayPal sandbox buyer account. No real money moves.
+            </div>
+          )}
+          <div className="p-5">
+            <p className="font-bold">Pay securely with PayPal</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Trip total <b className="text-slate-800">{inr(amount)}</b>
+              {paypal.currency !== "INR" && <> · charged as <b className="text-slate-800">{paypal.currency} {paypal.value}</b></>}. Pay with your PayPal balance or a card.
+            </p>
+            <div ref={paypalRef} className="mt-5 min-h-[120px]">
+              {paypalState === "loading" && <div className="skeleton h-12 rounded-xl" />}
+            </div>
+            {paypalState === "failed" && <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">Couldn&apos;t load PayPal. Check your internet connection and PAYPAL_CLIENT_ID.</p>}
+            {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>}
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Payment verified on our server before your booking is confirmed</p>
+          </div>
+        </div>
+        {overlay}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -173,21 +268,7 @@ export default function PaymentForm({ tripId, amount, razorpay, prefill, legs, s
         </div>
       </form>
 
-      {stage >= 0 && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="card w-full max-w-sm p-6">
-            <p className="text-lg font-extrabold">{stage >= stages.length ? "All booked! 🎉" : "Booking your trip…"}</p>
-            <ul className="mt-4 space-y-3">
-              {stages.map((s, i) => (
-                <li key={s} className="flex items-center gap-3 text-sm">
-                  {i < stage || stage >= stages.length ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : i === stage ? <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> : <span className="h-5 w-5 rounded-full border-2 border-slate-200" />}
-                  <span className={i <= stage ? "font-semibold" : "text-slate-400"}>{s}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      {overlay}
     </div>
   );
 }

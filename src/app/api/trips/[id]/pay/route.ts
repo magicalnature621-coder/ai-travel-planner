@@ -3,6 +3,7 @@ import Razorpay from "razorpay";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { integrations } from "@/lib/config";
+import { paypalCurrency, paypalEnabled, toPaypalAmount } from "@/lib/paypal";
 
 // Starts a payment. With Razorpay keys -> creates a real (test/live) order.
 // Without keys -> the app shows its built-in demo checkout.
@@ -15,6 +16,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (trip.status !== "DRAFT") return NextResponse.json({ error: "Already paid" }, { status: 400 });
   if (!trip.travellerDetails) return NextResponse.json({ error: "Please add traveller details first" }, { status: 400 });
 
+  // PayPal (sandbox) takes priority when configured; the order itself is created by /paypal-order
+  if (paypalEnabled())
+    return NextResponse.json({ mode: "paypal", clientId: process.env.PAYPAL_CLIENT_ID, currency: paypalCurrency(), value: toPaypalAmount(trip.totalAmount), amount: trip.totalAmount });
   if (!integrations.razorpay()) return NextResponse.json({ mode: "demo", amount: trip.totalAmount });
 
   const rzp = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID!, key_secret: process.env.RAZORPAY_KEY_SECRET! });

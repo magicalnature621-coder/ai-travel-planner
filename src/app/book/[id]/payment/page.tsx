@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { asTrip } from "@/lib/types";
 import { integrations } from "@/lib/config";
+import { paypalCurrency, paypalEnabled, toPaypalAmount } from "@/lib/paypal";
 import TripSummary from "@/components/TripSummary";
 import BookingSteps from "@/components/BookingSteps";
 import PaymentForm from "@/components/PaymentForm";
@@ -26,6 +27,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
           tripId={trip.id}
           amount={trip.totalAmount}
           razorpay={integrations.razorpay()}
+          paypal={paypalEnabled() ? { clientId: process.env.PAYPAL_CLIENT_ID!, currency: paypalCurrency(), value: toPaypalAmount(trip.totalAmount), sandbox: process.env.PAYPAL_ENV !== "live" } : null}
           prefill={{ name: user.name, email: trip.contact?.email ?? user.email, contact: trip.contact?.phone ?? user.phone }}
           legs={[trip.outbound ? { label: "onward", mode: trip.outbound.option.mode } : null, trip.returnLeg ? { label: "return", mode: trip.returnLeg.option.mode } : null].filter((l) => l !== null)}
           stayKind={trip.stay?.kind ?? null}
