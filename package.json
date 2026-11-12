@@ -19,11 +19,11 @@
     "groq-sdk": "^1.6.0",
     "jose": "^6.1.0",
     "lucide-react": "^0.544.0",
-    "next": "15.5.4",
+    "next": "^15.5.29",
     "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "^19.1.10",
+    "react-dom": "^19.1.10",
     "resend": "^6.1.2",
     "twilio": "^5.10.2",
     "zod": "^3.25.76"
@@ -35,7 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.4",
+    "eslint-config-next": "^15.5.29",
     "prisma": "^6.16.2",
     "tailwindcss": "^4",
     "typescript": "^5"
